@@ -57,9 +57,9 @@ from bokeh.plotting import gridplot
 from multiprocessing import Process, Queue
 from pyquaternion import Quaternion
 
-from agimus_demos.tools_hpp import concatenatePaths
-from agimus_demos.calibration.play_path import CalibrationControl, playAllPaths
-from agimus_demos.calibration import HandEyeCalibration as Calibration
+# from agimus_demos.tools_hpp import concatenatePaths
+# from agimus_demos.calibration.play_path import CalibrationControl, playAllPaths
+# from agimus_demos.calibration import HandEyeCalibration as Calibration
 from hpp.corbaserver.manipulation import ConstraintGraphFactory as Factory
 
 logger = getLogger(__name__)
@@ -72,7 +72,14 @@ os.environ["EGL_VISIBLE_DEVICES"] = "-1"
 print("[START]")
 print("To avoid crash during constrain graph building, RESTART the hppcorbaserver process once in a while.")
 
-connectedToRos = True
+connectedToRos = False
+
+Tless_object = 'tless_obj-000023' # 'tless_obj-000001' / 'tless_obj-000023'
+
+#__________________________START_OF_GRAPH_GENERATION_________________________
+
+package_location = os.getcwd()
+print(package_location)
 
 try:
     Robot.urdfString = rospy.get_param('robot_description')
@@ -81,21 +88,23 @@ try:
 except:
     print("reading generic URDF")
     from hpp.rostools import process_xacro, retrieve_resource
-    Robot.urdfString = process_xacro\
-      ("package://agimus_demos/franka/manipulation/urdf/demo.urdf.xacro")
+    Robot.urdfString = process_xacro(package_location + "/urdf/demo.urdf.xacro")
 Robot.srdfString = ""
 
 class Box:
-    urdfFilename="package://agimus_demos/franka/manipulation/urdf/big_box.urdf"
-    srdfFilename="package://agimus_demos/franka/manipulation/srdf/big_box.srdf"
+    urdfFilename=package_location + "/urdf/big_box.urdf"
+    srdfFilename=package_location + "/srdf/big_box.srdf"
     rootJointType = "freeflyer"
 
 class TLess:
-    urdfFilename = \
-        "package://agimus_demos/franka/manipulation/urdf/t-less/obj_01.urdf"
-    srdfFilename = \
-        "package://agimus_demos/franka/manipulation/srdf/t-less/obj_01.srdf"
-    rootJointType = "freeflyer"
+    if Tless_object == 'tless_obj-000001':
+        urdfFilename = package_location + "/urdf/t-less/obj_01.urdf" # /urdf/t-less/obj_23.urdf
+        srdfFilename = package_location + "/srdf/t-less/obj_01.srdf" # /srdf/t-less/obj_23.srdf
+        rootJointType = "freeflyer"
+    if Tless_object == 'tless_obj-000023':
+        urdfFilename = package_location + "/urdf/t-less/obj_23.urdf"
+        srdfFilename = package_location + "/srdf/t-less/obj_23.srdf"
+        rootJointType = "freeflyer"
 
 defaultContext = "corbaserver"
 loadServerPlugin(defaultContext, "manipulation-corba.so")
@@ -125,8 +134,7 @@ robot.setJointBounds('box/root_joint', [-1., 1., -1., 1., 0., 1.8])
 
 print("Part and box loaded")
 
-robot.client.manipulation.robot.insertRobotSRDFModel\
-    ("pandas", "package://agimus_demos/franka/manipulation/srdf/demo.srdf")
+robot.client.manipulation.robot.insertRobotSRDFModel("pandas", package_location + "/srdf/demo.srdf")
 
 # Remove collisions between object and self collision geometries
 srdfString = '<robot name="demo">'
@@ -134,18 +142,25 @@ for i in range(1,8):
     srdfString += f'<disable_collisions link1="panda2_link{i}_sc" link2="part/base_link" reason="handled otherwise"/>'
 srdfString += '<disable_collisions link1="panda2_hand_sc" link2="part/base_link" reason="handled otherwise"/>'
 srdfString += '</robot>'
-robot.client.manipulation.robot.insertRobotSRDFModelFromString(
-    "pandas",  srdfString)
+robot.client.manipulation.robot.insertRobotSRDFModelFromString("pandas",  srdfString)
 
 # Discretize handles
 ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper1",
-    [1.05, 0.0, 1.02,0,-sqrt(2)/2,0,sqrt(2)/2], 0.0)
+    [1.05, 0.0, 1.02,0,sqrt(2)/2,0,sqrt(2)/2], 0.0)
 ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper2",
     [1.05, 0.0, 1.02,0,-sqrt(2)/2,0,sqrt(2)/2], 0.0)
+ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper3",
+    [1.05, 0.0, 1.02,0,0,0,1], 0.0)
+ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper4",
+    [1.05, 0.0, 1.02,0,1,0,0], 0.0)
 ps.client.manipulation.robot.addHandle("part/base_link", "part/center1",
     [0,0,0,0,sqrt(2)/2,0,sqrt(2)/2], 0.03, 3*[True] + [False, True, True])
 ps.client.manipulation.robot.addHandle("part/base_link", "part/center2",
     [0,0,0,0,-sqrt(2)/2,0,sqrt(2)/2], 0.03, 3*[True] + [False, True, True])
+ps.client.manipulation.robot.addHandle("part/base_link", "part/center3",
+    [0,0,0,0,0,0,1], 0.03, 3*[True] + [False, True, True])
+ps.client.manipulation.robot.addHandle("part/base_link", "part/center4",
+    [0,0,0,0,1,0,0], 0.03, 3*[True] + [False, True, True])
 
 # Lock gripper in open position.
 ps.createLockedJoint('locked_finger_1', 'pandas/panda2_finger_joint1', [0.035])
@@ -153,17 +168,24 @@ ps.createLockedJoint('locked_finger_2', 'pandas/panda2_finger_joint2', [0.035])
 ps.setConstantRightHandSide('locked_finger_1', True)
 ps.setConstantRightHandSide('locked_finger_2', True)
 
+# Add handle of the objects (obj_tless-000001 : 16/16/16/16  obj_tless-000023 : 3/3/4/4)
 handles = list()
-handles += ["part/lateral_top_%03i"%i for i in range(16)]
-handles += ["part/lateral_bottom_%03i"%i for i in range(16)]
-handles += ["part/top_%03i"%i for i in range(16)]
-handles += ["part/bottom_%03i"%i for i in range(16)]
+if Tless_object == 'tless_obj-000001':
+    handles += ["part/lateral_top_%03i"%i for i in range(16)]
+    handles += ["part/lateral_bottom_%03i"%i for i in range(16)]
+    handles += ["part/top_%03i"%i for i in range(16)]
+    handles += ["part/bottom_%03i"%i for i in range(16)]
+if Tless_object == 'tless_obj-000023':
+    handles += ["part/lateral_top_%03i"%i for i in range(3)]
+    handles += ["part/lateral_bottom_%03i"%i for i in range(3)]
+    handles += ["part/top_%03i"%i for i in range(4)]
+    handles += ["part/bottom_%03i"%i for i in range(4)]
 
 binPicking = BinPicking(ps)
 binPicking.objects = ["part", "box"]
 binPicking.robotGrippers = ['pandas/panda2_gripper']
-binPicking.goalGrippers = ['goal/gripper1', 'goal/gripper2']
-binPicking.goalHandles = ["part/center1", "part/center2"]
+binPicking.goalGrippers = ['goal/gripper1', 'goal/gripper2','goal/gripper3','goal/gripper4']
+binPicking.goalHandles = ["part/center1", "part/center2", "part/center3", "part/center4"]
 binPicking.handles = handles
 binPicking.graphConstraints = ['locked_finger_1', 'locked_finger_2']
 
@@ -177,8 +199,12 @@ def disable_collision():
     
 disable_collision()
 
+build_time_start = time.time()
 print("Building constraint graph")
 binPicking.buildGraph()
+build_time_stop = time.time()
+building_time = build_time_stop - build_time_start
+print("The graph took ",building_time,"s to build.")
 
 q0 = [0, -pi/4, 0, -3*pi/4, 0, pi/2, pi/4, 0.035, 0.035,
       0, 0, 1.2, 0, 0, 0, 1,
@@ -211,9 +237,8 @@ def GrabAndDrop(robot, ps, binPicking, acq_type = None):
 
     if acq_type == 'test_config':
         print("[INFO] Test config.")
-        q_sim = [0,0.2, 0.65, 0.2917479872902073, 0.6193081061291802, 0.6618066799607849, 0.30553641346668353]
+        q_sim = [0,0, 0.85, 0.2917479872902073, 0.6193081061291802, 0.6618066799607849, 0.30553641346668353]
         q_init, wMo = q_init,None
-        print("test")
         q_init[9:16] = q_sim
 
     if acq_type == 'input_config':
@@ -295,23 +320,23 @@ def TakeAllObjects():
 
         q_init, p = GrabAndDrop(robot, ps, binPicking, param)
 
-        move = input("Play the movement ? [y/n] : ")
-        if move == 'y':
-            move_robot()
-        data.pop(id)
+        # move = input("Play the movement ? [y/n] : ")
+        # if move == 'y':
+        #     move_robot()
+        # data.pop(id)
 
     print("[INFO] Taking objects sequence ended.")
 
 
 #______________________________Utility_funtions______________________________
 
-def move_robot():
-    path_id = ps.numberPaths()
-    cc = CalibrationControl("panda2_hand","camera_color_optical_frame","panda2_ref_camera_link")
-    input("Press Enter to start the movement ...")
-    cc.playPath(path_id - 1,collect_data = False)
-    if not cc.errorOccured:
-        print("Ran {}".format(path_id))
+# def move_robot():
+#     path_id = ps.numberPaths()
+#     cc = CalibrationControl("panda2_hand","camera_color_optical_frame","panda2_ref_camera_link")
+#     input("Press Enter to start the movement ...")
+#     cc.playPath(path_id - 1,collect_data = False)
+#     if not cc.errorOccured:
+#         print("Ran {}".format(path_id))
 
 def clean_path_vector():
     # Cleaning the path vector
@@ -329,13 +354,15 @@ def clean_path_vector():
 
 def multiview_data_acquisition(nb=10):
     print("The script will run",nb,"times. For each iteration, move the robot to the desired configuration then press ENTER.")
+    ri = RosInterface(robot)
+    q_init = ri.getCurrentConfig(q0)
     for k in range(nb):
         input("Press ENTER to proceed with the data acquisition "+ str(k+1) +" ...")
         cam_pose_quat = dta.get_cam_pose()
         img = dta.capture_camera_image()
         list_of_cam_pose[k] = dta.quat2SE3(cam_pose_quat)[0]
         list_of_images[k] = img[0]
-        q = ri.getCurrentConfig(q_start)
+        q = ri.getCurrentConfig(q_init)
         list_of_q[k] = q[0:7]
     
     if not os.path.exists('multiview_data'):
@@ -403,8 +430,6 @@ def multiposes_refinement(iterations = 10):
 
 if __name__ == '__main__':
     print("Script HPP ready !")
-    q_start = RosInterface(robot).getCurrentConfig(q0)
-    ri = RosInterface(robot)
 
     list_of_cam_pose= np.zeros(shape=(10,4,4))
     list_of_images = np.zeros(shape=(10,720,1280,3),dtype=np.uint8)
