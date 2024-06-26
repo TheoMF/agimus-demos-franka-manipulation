@@ -145,22 +145,22 @@ srdfString += '</robot>'
 robot.client.manipulation.robot.insertRobotSRDFModelFromString("pandas",  srdfString)
 
 # Discretize handles
-ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper1",
-    [1.05, 0.0, 1.02,0,sqrt(2)/2,0,sqrt(2)/2], 0.0)
-ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper2",
-    [1.05, 0.0, 1.02,0,-sqrt(2)/2,0,sqrt(2)/2], 0.0)
-ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper3",
+ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper1", # [1.05, 0.0, 1.02,0,sqrt(2)/2,0,sqrt(2)/2]
     [1.05, 0.0, 1.02,0,0,0,1], 0.0)
-ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper4",
+ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper2", # [1.05, 0.0, 1.02,0,-sqrt(2)/2,0,sqrt(2)/2]
     [1.05, 0.0, 1.02,0,1,0,0], 0.0)
+# ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper3",
+#     [1.05, 0.0, 1.02,0,0,0,1], 0.0)
+# ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper4",
+#     [1.05, 0.0, 1.02,0,1,0,0], 0.0)
 ps.client.manipulation.robot.addHandle("part/base_link", "part/center1",
     [0,0,0,0,sqrt(2)/2,0,sqrt(2)/2], 0.03, 3*[True] + [False, True, True])
 ps.client.manipulation.robot.addHandle("part/base_link", "part/center2",
     [0,0,0,0,-sqrt(2)/2,0,sqrt(2)/2], 0.03, 3*[True] + [False, True, True])
-ps.client.manipulation.robot.addHandle("part/base_link", "part/center3",
-    [0,0,0,0,0,0,1], 0.03, 3*[True] + [False, True, True])
-ps.client.manipulation.robot.addHandle("part/base_link", "part/center4",
-    [0,0,0,0,1,0,0], 0.03, 3*[True] + [False, True, True])
+# ps.client.manipulation.robot.addHandle("part/base_link", "part/center3",
+#     [0,0,0,0,0,0,1], 0.03, 3*[True] + [False, True, True])
+# ps.client.manipulation.robot.addHandle("part/base_link", "part/center4",
+#     [0,0,0,0,1,0,0], 0.03, 3*[True] + [False, True, True])
 
 # Lock gripper in open position.
 ps.createLockedJoint('locked_finger_1', 'pandas/panda2_finger_joint1', [0.035])
@@ -184,8 +184,8 @@ if Tless_object == 'tless_obj-000023':
 binPicking = BinPicking(ps)
 binPicking.objects = ["part", "box"]
 binPicking.robotGrippers = ['pandas/panda2_gripper']
-binPicking.goalGrippers = ['goal/gripper1', 'goal/gripper2','goal/gripper3','goal/gripper4']
-binPicking.goalHandles = ["part/center1", "part/center2", "part/center3", "part/center4"]
+binPicking.goalGrippers = ['goal/gripper1', 'goal/gripper2'] # ['goal/gripper1', 'goal/gripper2','goal/gripper3','goal/gripper4']
+binPicking.goalHandles = ["part/center1", "part/center2"] # ["part/center1", "part/center2", "part/center3", "part/center4"]
 binPicking.handles = handles
 binPicking.graphConstraints = ['locked_finger_1', 'locked_finger_2']
 
@@ -237,7 +237,8 @@ def GrabAndDrop(robot, ps, binPicking, acq_type = None):
 
     if acq_type == 'test_config':
         print("[INFO] Test config.")
-        q_sim = [0,0, 0.85, 0.2917479872902073, 0.6193081061291802, 0.6618066799607849, 0.30553641346668353]
+        q_sim = [0, 0, 0.85, 0, sqrt(2)/2, 0, -sqrt(2)/2]
+        # q_sim = [0,0, 0.85, 0.2917479872902073, 0.6193081061291802, 0.6618066799607849, 0.30553641346668353]
         q_init, wMo = q_init,None
         q_init[9:16] = q_sim
 
