@@ -79,7 +79,6 @@ Tless_object = 'tless_obj-000023' # 'tless_obj-000001' / 'tless_obj-000023'
 #__________________________START_OF_GRAPH_GENERATION_________________________
 
 package_location = os.getcwd()
-print(package_location)
 
 try:
     Robot.urdfString = rospy.get_param('robot_description')
@@ -146,9 +145,9 @@ robot.client.manipulation.robot.insertRobotSRDFModelFromString("pandas",  srdfSt
 
 # Discretize handles
 ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper1", # [1.05, 0.0, 1.02,0,sqrt(2)/2,0,sqrt(2)/2]
-    [1.05, 0.0, 1.02,0,0,0,1], 0.0)
+    [1.05, 0.0, 1.02,0,sqrt(2)/2,0,sqrt(2)/2], 0.0)
 ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper2", # [1.05, 0.0, 1.02,0,-sqrt(2)/2,0,sqrt(2)/2]
-    [1.05, 0.0, 1.02,0,1,0,0], 0.0)
+    [1.05, 0.0, 1.02,0,-sqrt(2)/2,0,sqrt(2)/2], 0.0)
 # ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper3",
 #     [1.05, 0.0, 1.02,0,0,0,1], 0.0)
 # ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper4",
@@ -237,8 +236,13 @@ def GrabAndDrop(robot, ps, binPicking, acq_type = None):
 
     if acq_type == 'test_config':
         print("[INFO] Test config.")
-        q_sim = [0, 0, 0.85, 0, sqrt(2)/2, 0, -sqrt(2)/2]
-        # q_sim = [0,0, 0.85, 0.2917479872902073, 0.6193081061291802, 0.6618066799607849, 0.30553641346668353]
+        print("Searching object : ", Tless_object)
+        if Tless_object == 'tless_obj-000001':
+            q_sim = [0,0, 0.85, 0.2917479872902073, 0.6193081061291802, 0.6618066799607849, 0.30553641346668353]
+        elif Tless_object == 'tless_obj-000023':
+            q_sim = [0, 0, 0.85, 0, sqrt(2)/2, 0, -sqrt(2)/2]
+        else:
+            print("[ERROR] TLESS object name wasn't enter correctly or the variable isn't set.")
         q_init, wMo = q_init,None
         q_init[9:16] = q_sim
 

@@ -52,7 +52,7 @@ def callback(msg):
     message = msg
     rospy.sleep(1)
 
-def listen_to_happypose_detections():
+def listen_to_happypose_detections(obj_name='tless-obj_000001'):
     topic_name = "/happypose/detections"
     show_data = True
     break_var = False
@@ -77,7 +77,7 @@ def listen_to_happypose_detections():
             sys.stdout.flush()
         
     # Seperate the selected object from other detected object in the topic message
-    select_objects('tless-obj_000001')
+    select_objects(obj_name)
 
     # Transform object in world frame
     get_transform_all()
@@ -167,7 +167,7 @@ def get_transform_all():
         object_pose.theta_w = transformed_pose.orientation.w
     return pose_list
 
-def run_pipeline():
+def run_pipeline(obj_name='tless-obj_000001'):
     # Global variable
     global object_poses
     global message
@@ -193,7 +193,7 @@ def run_pipeline():
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
 
-    listen_to_happypose_detections()
+    listen_to_happypose_detections(obj_name)
     poses = get_transform_all()
 
     return poses
