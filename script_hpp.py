@@ -74,7 +74,7 @@ print("To avoid crash during constrain graph building, RESTART the hppcorbaserve
 
 connectedToRos = False
 
-Tless_object = 'tless_obj-000023' # 'tless_obj-000001' / 'tless_obj-000023'
+Tless_object = 'tless-obj_000001' # 'tless-obj_000001' / 'tless-obj_000023'
 
 #__________________________START_OF_GRAPH_GENERATION_________________________
 
@@ -96,11 +96,11 @@ class Box:
     rootJointType = "freeflyer"
 
 class TLess:
-    if Tless_object == 'tless_obj-000001':
+    if Tless_object == 'tless-obj_000001':
         urdfFilename = package_location + "/urdf/t-less/obj_01.urdf" # /urdf/t-less/obj_23.urdf
         srdfFilename = package_location + "/srdf/t-less/obj_01.srdf" # /srdf/t-less/obj_23.srdf
         rootJointType = "freeflyer"
-    if Tless_object == 'tless_obj-000023':
+    if Tless_object == 'tless-obj_000023':
         urdfFilename = package_location + "/urdf/t-less/obj_23.urdf"
         srdfFilename = package_location + "/srdf/t-less/obj_23.srdf"
         rootJointType = "freeflyer"
@@ -169,12 +169,12 @@ ps.setConstantRightHandSide('locked_finger_2', True)
 
 # Add handle of the objects (obj_tless-000001 : 16/16/16/16  obj_tless-000023 : 3/3/4/4)
 handles = list()
-if Tless_object == 'tless_obj-000001':
+if Tless_object == 'tless-obj_000001': 
     handles += ["part/lateral_top_%03i"%i for i in range(16)]
     handles += ["part/lateral_bottom_%03i"%i for i in range(16)]
     handles += ["part/top_%03i"%i for i in range(16)]
     handles += ["part/bottom_%03i"%i for i in range(16)]
-if Tless_object == 'tless_obj-000023':
+if Tless_object == 'tless-obj_000023':
     handles += ["part/lateral_top_%03i"%i for i in range(3)]
     handles += ["part/lateral_bottom_%03i"%i for i in range(3)]
     handles += ["part/top_%03i"%i for i in range(4)]
@@ -237,9 +237,9 @@ def GrabAndDrop(robot, ps, binPicking, acq_type = None):
     if acq_type == 'test_config':
         print("[INFO] Test config.")
         print("Searching object : ", Tless_object)
-        if Tless_object == 'tless_obj-000001':
+        if Tless_object == 'tless-obj_000001':
             q_sim = [0,0, 0.85, 0.2917479872902073, 0.6193081061291802, 0.6618066799607849, 0.30553641346668353]
-        elif Tless_object == 'tless_obj-000023':
+        elif Tless_object == 'tless-obj_000023':
             q_sim = [0, 0, 0.85, 0, sqrt(2)/2, 0, -sqrt(2)/2]
         else:
             print("[ERROR] TLESS object name wasn't enter correctly or the variable isn't set.")
