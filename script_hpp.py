@@ -70,7 +70,8 @@ from bokeh.plotting import gridplot
 from multiprocessing import Process, Queue
 from pyquaternion import Quaternion
 
-# from agimus_demos.tools_hpp import concatenatePaths
+from agimus_demos.tools_hpp import concatenatePaths
+
 # from agimus_demos.calibration.play_path import CalibrationControl, playAllPaths
 # from agimus_demos.calibration import HandEyeCalibration as Calibration
 from hpp.corbaserver.manipulation import ConstraintGraphFactory as Factory
@@ -94,7 +95,6 @@ Tless_object = "tless-obj_000001"  # 'tless-obj_000001' / 'tless-obj_000023'
 # __________________________START_OF_GRAPH_GENERATION_________________________
 
 package_location = os.getcwd()
-
 try:
     Robot.urdfString = rospy.get_param("robot_description")
     print("reading URDF from ROS param")
@@ -135,6 +135,7 @@ newProblem()
 
 robot = Robot("robot", "pandas", rootJointType="anchor")
 robot.opticalFrame = "camera_color_optical_frame"
+# shrinkJointRange(robot, [f"pandas/panda_joint{i}" for i in range(1, 8)], 0.95)
 shrinkJointRange(robot, [f"pandas/panda2_joint{i}" for i in range(1, 8)], 0.95)
 ps = ProblemSolver(robot)
 
@@ -155,9 +156,11 @@ robot.setJointBounds("part/root_joint", [-1.0, 1.5, -1.0, 1.0, 0.0, 2.2])
 robot.setJointBounds("box/root_joint", [-1.0, 1.0, -1.0, 1.0, 0.0, 1.8])
 
 print("Part and box loaded")
+import panda_torque_mpc
 
+panda_location = "/home/gepetto/ros_ws/src/panda_torque_mpc"
 robot.client.manipulation.robot.insertRobotSRDFModel(
-    "pandas", package_location + "/srdf/demo.srdf"
+    "pandas", panda_location + "/srdf/demo.srdf"
 )
 
 # Remove collisions between object and self collision geometries
@@ -205,8 +208,10 @@ ps.client.manipulation.robot.addHandle(
 #     [0,0,0,0,1,0,0], 0.03, 3*[True] + [False, True, True])
 
 # Lock gripper in open position.
-ps.createLockedJoint("locked_finger_1", "pandas/panda2_finger_joint1", [0.035])
-ps.createLockedJoint("locked_finger_2", "pandas/panda2_finger_joint2", [0.035])
+# ps.createLockedJoint("locked_finger_1", "pandas/panda2_finger_joint1", [0.035])
+# ps.createLockedJoint("locked_finger_2", "pandas/panda2_finger_joint2", [0.035])
+ps.createLockedJoint("locked_finger_1", "pandas/panda_finger_joint1", [0.035])
+ps.createLockedJoint("locked_finger_2", "pandas/panda_finger_joint2", [0.035])
 ps.setConstantRightHandSide("locked_finger_1", True)
 ps.setConstantRightHandSide("locked_finger_2", True)
 
@@ -225,7 +230,8 @@ if Tless_object == "tless-obj_000023":
 
 binPicking = BinPicking(ps)
 binPicking.objects = ["part", "box"]
-binPicking.robotGrippers = ["pandas/panda2_gripper"]
+binPicking.robotGrippers = ["pandas/panda_gripper"]
+# binPicking.robotGrippers = ["pandas/panda2_gripper"]
 binPicking.goalGrippers = [
     "goal/gripper1",
     "goal/gripper2",
@@ -294,6 +300,14 @@ binPicking.buildEffectors([f"box/base_link_{i}" for i in range(5)], q0)
 print("Generating goal configurations.")
 binPicking.generateGoalConfigs(q0)
 
+
+def split_path(p):
+    grasp_path = concatenatePaths([p.pathAtRank(0), p.pathAtRank(1)])
+    placing_path = concatenatePaths([p.pathAtRank(2), p.pathAtRank(3)])
+    freefly_path = p.pathAtRank(4)
+    return grasp_path, placing_path, freefly_path
+
+
 # ___________________________END_OF_GRAPH_GENERATION__________________________
 
 
@@ -305,6 +319,8 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         ri = RosInterface(robot)
         q_init = ri.getCurrentConfig(q0)
         res, q_init, err = binPicking.graph.applyNodeConstraints("free", q_init)
+        print("connected to ros, qinit ", q_init)
+        print("q0 ros ", q0)
         assert res
     else:
         q_init = q0[:]
@@ -352,6 +368,30 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         ]
         q_init[9:16], wMo = q_input, None
 
+    if acq_type == "pose_precomputed":
+        print("[INFO] using pose.")
+        from transform import get_object_transform
+
+        precomp_pose = get_object_transform()
+        quat = Quaternion(
+            precomp_pose.pose.orientation.w,
+            precomp_pose.pose.orientation.x,
+            precomp_pose.pose.orientation.y,
+            precomp_pose.pose.orientation.z,
+        )
+        quat = quat.normalised
+        q_input = [
+            precomp_pose.pose.position.x,
+            precomp_pose.pose.position.y,
+            precomp_pose.pose.position.z,
+            quat[0],
+            quat[1],
+            quat[2],
+            quat[3],
+        ]
+
+        q_init[9:16], wMo = q_input, None
+
     if acq_type == "ros_bridge_config":
         print("[INFO] Make sure the /happypose/detections ros topic exist !")
         input("Press [ENTER] to proceed ...")
@@ -384,7 +424,7 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         q_given = ast.literal_eval(poses)
         print("The given config is : ", q_given)
         q_init[9:16], wMo = q_given, None
-
+    """
     if (
         acq_type != "test_config"
         and acq_type != "input_config"
@@ -394,7 +434,7 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         print("[INFO] No config given to the object.")
         q_init, wMo = ri.getObjectPose(q_init)
     # ___________________________________________
-
+    """
     q_init[9:16] = check_height(q_init[9:16])
     poses = np.array(q_init[9:16])
 
@@ -415,8 +455,12 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         print("Solving ...")
         res = False
         res, p = binPicking.solve(q_init)
+        print("p", p)
+        grasp_path, placing_path, freefly_path = split_path(p)
         if res:
-            ps.client.basic.problem.addPath(p)
+            ps.client.basic.problem.addPath(grasp_path)
+            ps.client.basic.problem.addPath(placing_path)
+            ps.client.basic.problem.addPath(freefly_path)
             print("Path generated.")
         else:
             print(p)
