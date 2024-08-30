@@ -135,8 +135,8 @@ newProblem()
 
 robot = Robot("robot", "pandas", rootJointType="anchor")
 robot.opticalFrame = "camera_color_optical_frame"
-# shrinkJointRange(robot, [f"pandas/panda_joint{i}" for i in range(1, 8)], 0.95)
-shrinkJointRange(robot, [f"pandas/panda2_joint{i}" for i in range(1, 8)], 0.95)
+shrinkJointRange(robot, [f"pandas/panda_joint{i}" for i in range(1, 8)], 0.95)
+# shrinkJointRange(robot, [f"pandas/panda2_joint{i}" for i in range(1, 8)], 0.95)
 ps = ProblemSolver(robot)
 
 ps.addPathOptimizer("EnforceTransitionSemantic")
@@ -301,11 +301,37 @@ print("Generating goal configurations.")
 binPicking.generateGoalConfigs(q0)
 
 
-def split_path(p):
-    grasp_path = concatenatePaths([p.pathAtRank(0), p.pathAtRank(1)])
-    placing_path = concatenatePaths([p.pathAtRank(2), p.pathAtRank(3)])
-    freefly_path = p.pathAtRank(4)
+def split_path(path):
+    path = path.flatten()
+    # if not path_move_object(path.pathAtRank(0)):
+    grasp_path_idxs = [0]
+    placing_path_idxs = []
+    freefly_path_idxs = []
+    # else:
+    #   raise RuntimeError("first path is moving the object")
+
+    for idx in range(1, path.numberPaths()):
+        if path_move_object(path.pathAtRank(idx)):
+            placing_path_idxs.append(idx)
+        else:
+            if len(placing_path_idxs) == 0:
+                grasp_path_idxs.append(idx)
+            else:
+                freefly_path_idxs.append(idx)
+    grasp_path = concatenatePaths([path.pathAtRank(idx) for idx in grasp_path_idxs])
+    placing_path = concatenatePaths([path.pathAtRank(idx) for idx in placing_path_idxs])
+    freefly_path = concatenatePaths([path.pathAtRank(idx) for idx in freefly_path_idxs])
     return grasp_path, placing_path, freefly_path
+
+
+def path_move_object(path):
+    object_init_pose = np.array(path.initial()[9:12])
+    object_end_pose = np.array(path.end()[9:12])
+    eps = 1e-4
+    if np.linalg.norm(object_end_pose - object_init_pose) < eps:
+        return False
+    else:
+        return True
 
 
 # ___________________________END_OF_GRAPH_GENERATION__________________________
@@ -373,6 +399,7 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         from transform import get_object_transform
 
         precomp_pose = get_object_transform()
+        print("prec pose ", precomp_pose)
         quat = Quaternion(
             precomp_pose.pose.orientation.w,
             precomp_pose.pose.orientation.x,
@@ -391,6 +418,7 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         ]
 
         q_init[9:16], wMo = q_input, None
+        print("q_init obj pose ", q_init[9:16])
 
     if acq_type == "ros_bridge_config":
         print("[INFO] Make sure the /happypose/detections ros topic exist !")
@@ -461,6 +489,7 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
             ps.client.basic.problem.addPath(grasp_path)
             ps.client.basic.problem.addPath(placing_path)
             ps.client.basic.problem.addPath(freefly_path)
+            ps.client.basic.problem.addPath(p)
             print("Path generated.")
         else:
             print(p)
@@ -519,6 +548,15 @@ def TakeAllObjects():
 #     cc.playPath(path_id - 1,collect_data = False)
 #     if not cc.errorOccured:
 #         print("Ran {}".format(path_id))
+
+
+def get_tids(ps, path_idx):
+    qs, ts = ps.client.basic.problem.getWaypoints(path_idx)
+    tids = [
+        ps.client.manipulation.problem.edgeAtParam(0, (t0 + t1) / 2)
+        for t0, t1 in zip(ts[:-1], ts[1:])
+    ]
+    return tids
 
 
 def clean_path_vector():
