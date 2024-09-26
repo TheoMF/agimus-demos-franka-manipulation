@@ -360,9 +360,9 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         print("Searching object : ", Tless_object)
         if Tless_object == "tless-obj_000001":
             q_sim = [
-                0,
-                0,
-                0.85,
+                0.12,
+                -0.07,
+                0.875,
                 0.2917479872902073,
                 0.6193081061291802,
                 0.6618066799607849,
