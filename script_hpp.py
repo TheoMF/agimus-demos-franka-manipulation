@@ -142,7 +142,7 @@ ps = ProblemSolver(robot)
 ps.addPathOptimizer("EnforceTransitionSemantic")
 ps.addPathOptimizer("SimpleTimeParameterization")
 ps.setParameter("SimpleTimeParameterization/order", 2)
-ps.setParameter("SimpleTimeParameterization/maxAcceleration", 0.5)
+ps.setParameter("SimpleTimeParameterization/maxAcceleration", 0.3)
 ps.setParameter("SimpleTimeParameterization/safety", 0.95)
 
 # Add path projector to avoid discontinuities
@@ -424,7 +424,8 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         print("[INFO] Make sure the /happypose/detections ros topic exist !")
         input("Press [ENTER] to proceed ...")
         print("Gathering poses")
-        data = btf.run_pipeline()
+        data, ids = btf.run_pipeline()
+        print("ids ", ids)
         id = select_higher_id(data)
         quat = Quaternion(
             [
@@ -489,7 +490,6 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
             ps.client.basic.problem.addPath(grasp_path)
             ps.client.basic.problem.addPath(placing_path)
             ps.client.basic.problem.addPath(freefly_path)
-            ps.client.basic.problem.addPath(p)
             print("Path generated.")
         else:
             print(p)
@@ -500,43 +500,6 @@ def GrabAndDrop(robot, ps, binPicking, acq_type=None):
         print("Trying solving without playing path for simulation ...")
 
     return q_init, None
-
-
-def TakeAllObjects():
-    print("[INFO] Make sure the /happypose/detections ros topic exist !")
-    input("Press [ENTER] to proceed ...")
-    data = btf.run_pipeline()
-
-    for i in range(len(data)):
-        id = select_higher_id(data)
-        quat = Quaternion(
-            [
-                data[id].orientation.x,
-                data[id].orientation.y,
-                data[id].orientation.z,
-                data[id].orientation.w,
-            ]
-        )
-        quat = quat.normalised
-        q_given = [
-            data[id].position.x,
-            data[id].position.y,
-            data[id].position.z,
-            quat[0],
-            quat[1],
-            quat[2],
-            quat[3],
-        ]
-        param = "given_config :" + str(q_given)
-
-        q_init, p = GrabAndDrop(robot, ps, binPicking, param)
-
-        # move = input("Play the movement ? [y/n] : ")
-        # if move == 'y':
-        #     move_robot()
-        # data.pop(id)
-
-    print("[INFO] Taking objects sequence ended.")
 
 
 # ______________________________Utility_funtions______________________________
@@ -641,50 +604,6 @@ def select_higher_id(data):
         id = 0
 
     return id
-
-
-def multiposes_refinement(iterations=10):
-    multiposes = []
-    for i in range(iterations):
-        print("Gathering poses")
-        # Gather poses x times
-        data = btf.run_pipeline()
-        id = select_higher_id(data)
-        quat = Quaternion(
-            [
-                data[id].orientation.x,
-                data[id].orientation.y,
-                data[id].orientation.z,
-                data[id].orientation.w,
-            ]
-        )
-        quat = quat.normalised
-        multiposes.append(
-            [
-                data[id].position.x,
-                data[id].position.y,
-                data[id].position.z,
-                quat[0],
-                quat[1],
-                quat[2],
-                quat[3],
-            ]
-        )
-        print("[INFO] Wait 2s ...")
-        time.sleep(2)
-    multiposes = np.array(multiposes)
-    refined_poses = [
-        np.mean(multiposes[:, 0]),
-        np.mean(multiposes[:, 1]),
-        np.mean(multiposes[:, 2]),
-        np.mean(multiposes[:, 3]),
-        np.mean(multiposes[:, 4]),
-        np.mean(multiposes[:, 5]),
-        np.mean(multiposes[:, 6]),
-    ]
-    print(refined_poses)
-
-    return refined_poses, multiposes
 
 
 # ____________________________________________________________________________

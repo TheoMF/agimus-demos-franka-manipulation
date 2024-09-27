@@ -8,6 +8,7 @@ from std_msgs.msg import String
 from vision_msgs.msg import Detection2DArray
 from pyquaternion import Quaternion
 
+
 class Object_Pose:
     def init(self, x, y, z, theta_x, theta_y, theta_z, theta_w):
         self.x = x
@@ -22,20 +23,24 @@ class Object_Pose:
     def __str__(self):
         return f"Poses : \n x = {self.x}\n y = {self.y}\n z = {self.z}\n theta x = {self.theta_x}\n theta y = {self.theta_y}\n theta z = {self.theta_z}\n theta w = {self.theta_w}\n"
 
-    def isNormalize(self, to_normalize = False):
+    def isNormalize(self, to_normalize=False):
         normalized = False
 
-        d = np.sqrt(self.theta_x**2 + self.theta_y**2 + self.theta_z**2 + self.theta_w**2)
-        norm = self.theta_x/d + self.theta_y/d + self.theta_z/d + self.theta_w/d
+        d = np.sqrt(
+            self.theta_x**2 + self.theta_y**2 + self.theta_z**2 + self.theta_w**2
+        )
+        norm = self.theta_x / d + self.theta_y / d + self.theta_z / d + self.theta_w / d
 
-        if norm >=0.99 and norm <= 1.01:
+        if norm >= 0.99 and norm <= 1.01:
             normalized = True
         if normalized:
-            print("The object quaternion is normalzed (norm =", norm,")")
+            print("The object quaternion is normalzed (norm =", norm, ")")
         if not normalized:
-            print("The object quaternion is not normalzed(norm =", norm,")")
+            print("The object quaternion is not normalzed(norm =", norm, ")")
         if to_normalize:
-            quaternion = Quaternion(x=self.theta_x, y=self.theta_y, z=self.theta_z, w=self.theta_w)
+            quaternion = Quaternion(
+                x=self.theta_x, y=self.theta_y, z=self.theta_z, w=self.theta_w
+            )
             quaternion = Quaternion.normalised
             self.theta_x = quaternion[0]
             self.theta_y = quaternion[1]
@@ -44,7 +49,7 @@ class Object_Pose:
             self.quaternion = quaternion
 
     def show_quaternion(self):
-        print("Object quaternion :",self.quaternion)
+        print("Object quaternion :", self.quaternion)
 
 
 def callback(msg):
@@ -52,8 +57,10 @@ def callback(msg):
     message = msg
     rospy.sleep(1)
 
-def listen_to_happypose_detections(obj_name='tless-obj_000001'):
-    topic_name = "/happypose/detections"
+
+def listen_to_happypose_detections(obj_name="tless-obj_000001"):
+    # topic_name = "/happypose/detections"
+    topic_name = "/m3t_tracker/detections"
     show_data = True
     break_var = False
     time_start = time.time()
@@ -69,19 +76,19 @@ def listen_to_happypose_detections(obj_name='tless-obj_000001'):
         if message != None:
             break_var = True
             print("[INFO] Topic subscribed and objects found.")
-        else :
+        else:
             data = rospy.Subscriber(topic_name, Detection2DArray, callback)
             rospy.sleep(1)
-            time_elapsed = time.time()-time_start
+            time_elapsed = time.time() - time_start
             sys.stdout.write("Current time : %d \r" % (time_elapsed))
             sys.stdout.flush()
-        
+
     # Seperate the selected object from other detected object in the topic message
     select_objects(obj_name)
 
     # Transform object in world frame
     get_transform_all()
-    
+
     if show_data:
         print("\n")
         print("<-----------------------POSES----------------------->")
@@ -90,7 +97,8 @@ def listen_to_happypose_detections(obj_name='tless-obj_000001'):
             print(object_poses[el])
         print("<--------------------------------------------------->")
 
-def select_objects(obj_name='tless-obj_000001'):
+
+def select_objects(obj_name="tless-obj_000001"):
     global message
     global object_poses
     global object_message_list
@@ -99,7 +107,6 @@ def select_objects(obj_name='tless-obj_000001'):
         nb_obj = len(message.detections)
     except:
         print("The message is empty.")
-        
 
     object_message_list = []
     obj_id = 0
@@ -111,7 +118,7 @@ def select_objects(obj_name='tless-obj_000001'):
         if obj_name in name:
             object_message_list.append(message.detections[i])
             obj_id += 1
-            name = str(name+"_"+str(obj_id))
+            name = str(name + "_" + str(obj_id))
             x = data.pose.pose.position.x
             y = data.pose.pose.position.y
             z = data.pose.pose.position.z
@@ -129,7 +136,8 @@ def select_objects(obj_name='tless-obj_000001'):
             object_pose.theta_z = theta_z
             object_pose.theta_w = theta_w
 
-            object_poses[str(name)] = object_pose 
+            object_poses[str(name)] = object_pose
+
 
 def get_transform(obj_id=0):
     global object_message_list
@@ -137,10 +145,15 @@ def get_transform(obj_id=0):
     global listener
 
     # Get the poses of the object in the world frame through tf_transform
-    transform = tfBuffer.lookup_transform('world','camera_color_optical_frame', rospy.Time())
-    pose_transformed = tf2_geometry_msgs.do_transform_pose(object_message_list[obj_id].results[0].pose, transform)
+    transform = tfBuffer.lookup_transform(
+        "world", "camera_color_optical_frame", rospy.Time()
+    )
+    pose_transformed = tf2_geometry_msgs.do_transform_pose(
+        object_message_list[obj_id].results[0].pose, transform
+    )
 
     return pose_transformed.pose
+
 
 def get_transform_all():
     global object_poses
@@ -154,8 +167,10 @@ def get_transform_all():
     print(len(object_message_list))
 
     # Get the poses of all the objects in the world frame through tf_transform
+    obj_ids = []
     for obj_id in range(len(object_message_list)):
         transformed_pose = get_transform(obj_id)
+        obj_ids.append(object_message_list[obj_id].id)
         pose_list.append(transformed_pose)
         object_pose = object_poses[str(name_list[obj_id])]
         object_pose.x = transformed_pose.position.x
@@ -165,9 +180,10 @@ def get_transform_all():
         object_pose.theta_y = transformed_pose.orientation.y
         object_pose.theta_z = transformed_pose.orientation.z
         object_pose.theta_w = transformed_pose.orientation.w
-    return pose_list
+    return pose_list, obj_ids
 
-def run_pipeline(obj_name='tless-obj_000001'):
+
+def run_pipeline(obj_name="tless-obj_000001"):
     # Global variable
     global object_poses
     global message
@@ -194,9 +210,10 @@ def run_pipeline(obj_name='tless-obj_000001'):
     listener = tf2_ros.TransformListener(tfBuffer)
 
     listen_to_happypose_detections(obj_name)
-    poses = get_transform_all()
+    poses, obj_ids = get_transform_all()
 
-    return poses
+    return poses, obj_ids
+
 
 if __name__ == "__main__":
     print("[START]")
