@@ -412,7 +412,7 @@ class BinPicking(object):
                     res = True
             # Sort handles by increasing z coordinate of gripper axis
             l = sorted(freeGrasps, key=lambda x: x[1], reverse=True)
-            print("sorted grasps ", l)
+            print("first sorted grasps ", l[0])
             if len(l) > 0:
                 self._freeGrasps[gripper] = list(zip(*l))[0]
 
