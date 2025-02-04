@@ -421,8 +421,8 @@ demo:
     - grippers: ['goal/gripper2']
       handles: ['part/bottom_015']
       link: False
-    - grippers: ['pandas/panda2_gripper', 'goal/gripper1', 'goal/gripper2'] # ['pandas/panda2_gripper', 'goal/gripper1', 'goal/gripper2','goal/gripper3','goal/gripper4']
-      handles: ['.*', 'part/center1', 'part/center2'] # ['.*', 'part/center1', 'part/center2', 'part/center3', 'part/center4']
+    - grippers: ['pandas/panda2_gripper', 'goal/gripper1', 'goal/gripper2']
+      handles: ['.*', 'part/center1', 'part/center2']
       link: False
     - grippers: ['.*']
       handles: ['.*']

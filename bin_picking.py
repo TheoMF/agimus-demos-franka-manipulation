@@ -139,7 +139,7 @@ class BinPicking(object):
         # object cannot be placed in two goal positions at the same time
         rules += [
             Rule(grippers=self.robotGrippers + self.goalGrippers,
-                 handles = [".*", "part/center1", "part/center2"], # [".*", "part/center1", "part/center2", "part/center3", "part/center4"]
+                 handles = [".*", "part/center1", "part/center2"],
                  link=False),
             Rule(grippers=[".*"], handles=[".*"], link=True)
         ]

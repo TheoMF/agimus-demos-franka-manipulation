@@ -26,55 +26,23 @@
 
 from math import pi, sqrt
 from hpp.corbaserver import loadServerPlugin, shrinkJointRange
-from hpp.corbaserver.manipulation import (
-    Robot,
-    createContext,
-    newProblem,
-    ProblemSolver,
-    ConstraintGraph,
-    ConstraintGraphFactory,
-    CorbaClient,
-    SecurityMargins,
-    Constraints,
-)
+from hpp.corbaserver.manipulation import Robot, newProblem, ProblemSolver
 from hpp.gepetto.manipulation import ViewerFactory
-from hpp.corbaserver import wrap_delete
-from tools_hpp import (
-    displayGripper,
-    displayHandle,
-    generateTargetConfig,
-    shootPartInBox,
-    RosInterface,
-)
+from tools_hpp import RosInterface
 from bin_picking import BinPicking
 from logging import getLogger
 
-import rospy, tf2_ros
-import sys
+import rospy
 import os
 import numpy as np
-import cv2
 import torch
 import time
 import ast
 from bridge_transform import VisionListener
-import data_acquisition as dta
-
-from scipy.spatial.transform import Rotation as R
-from sensor_msgs.msg import Image, CameraInfo
-from cv_bridge import CvBridge
-from PIL import Image as img_PIL
-from pathlib import Path
-from bokeh.io import export_png
-from bokeh.plotting import gridplot
-from multiprocessing import Process, Queue
 from pyquaternion import Quaternion
 
 from agimus_demos.tools_hpp import concatenatePaths
 
-# from agimus_demos.calibration.play_path import CalibrationControl, playAllPaths
-# from agimus_demos.calibration import HandEyeCalibration as Calibration
-from hpp.corbaserver.manipulation import ConstraintGraphFactory as Factory
 
 logger = getLogger(__name__)
 
@@ -132,7 +100,6 @@ newProblem()
 robot = Robot("robot", "pandas", rootJointType="anchor")
 robot.opticalFrame = "camera_color_optical_frame"
 shrinkJointRange(robot, [f"pandas/panda_joint{i}" for i in range(1, 8)], 0.95)
-# shrinkJointRange(robot, [f"pandas/panda2_joint{i}" for i in range(1, 8)], 0.95)
 ps = ProblemSolver(robot)
 
 ps.addPathOptimizer("EnforceTransitionSemantic")
@@ -169,20 +136,16 @@ robot.client.manipulation.robot.insertRobotSRDFModelFromString("pandas", srdfStr
 # Discretize handles
 ps.client.manipulation.robot.addGripper(
     "pandas/support_link",
-    "goal/gripper1",  # [1.05, 0.0, 1.02,0,sqrt(2)/2,0,sqrt(2)/2]
+    "goal/gripper1",
     [1.05, 0.0, 1.02, 0, sqrt(2) / 2, 0, sqrt(2) / 2],
     0.0,
 )
 ps.client.manipulation.robot.addGripper(
     "pandas/support_link",
-    "goal/gripper2",  # [1.05, 0.0, 1.02,0,-sqrt(2)/2,0,sqrt(2)/2]
+    "goal/gripper2",
     [1.05, 0.0, 1.02, 0, -sqrt(2) / 2, 0, sqrt(2) / 2],
     0.0,
 )
-# ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper3",
-#     [1.05, 0.0, 1.02,0,0,0,1], 0.0)
-# ps.client.manipulation.robot.addGripper("pandas/support_link", "goal/gripper4",
-#     [1.05, 0.0, 1.02,0,1,0,0], 0.0)
 ps.client.manipulation.robot.addHandle(
     "part/base_link",
     "part/center1",
@@ -197,14 +160,8 @@ ps.client.manipulation.robot.addHandle(
     0.03,
     3 * [True] + [False, True, True],
 )
-# ps.client.manipulation.robot.addHandle("part/base_link", "part/center3",
-#     [0,0,0,0,0,0,1], 0.03, 3*[True] + [False, True, True])
-# ps.client.manipulation.robot.addHandle("part/base_link", "part/center4",
-#     [0,0,0,0,1,0,0], 0.03, 3*[True] + [False, True, True])
 
 # Lock gripper in open position.
-# ps.createLockedJoint("locked_finger_1", "pandas/panda2_finger_joint1", [0.035])
-# ps.createLockedJoint("locked_finger_2", "pandas/panda2_finger_joint2", [0.035])
 ps.createLockedJoint("locked_finger_1", "pandas/panda_finger_joint1", [0.035])
 ps.createLockedJoint("locked_finger_2", "pandas/panda_finger_joint2", [0.035])
 ps.setConstantRightHandSide("locked_finger_1", True)
@@ -226,15 +183,14 @@ if Tless_object == "tless-obj_000023":
 binPicking = BinPicking(ps)
 binPicking.objects = ["part", "box"]
 binPicking.robotGrippers = ["pandas/panda_gripper"]
-# binPicking.robotGrippers = ["pandas/panda2_gripper"]
 binPicking.goalGrippers = [
     "goal/gripper1",
     "goal/gripper2",
-]  # ['goal/gripper1', 'goal/gripper2','goal/gripper3','goal/gripper4']
+]
 binPicking.goalHandles = [
     "part/center1",
     "part/center2",
-]  # ["part/center1", "part/center2", "part/center3", "part/center4"]
+]
 binPicking.handles = handles
 binPicking.graphConstraints = ["locked_finger_1", "locked_finger_2"]
 
@@ -298,12 +254,9 @@ binPicking.generateGoalConfigs(q0)
 
 def split_path(path):
     path = path.flatten()
-    # if not path_move_object(path.pathAtRank(0)):
     grasp_path_idxs = [0]
     placing_path_idxs = []
     freefly_path_idxs = []
-    # else:
-    #   raise RuntimeError("first path is moving the object")
 
     for idx in range(1, path.numberPaths()):
         if path_move_object(path.pathAtRank(idx)):
@@ -380,17 +333,15 @@ def GrabAndDrop(robot, ps, binPicking, q_init, acq_type=None, vision_listener=No
         ]
         q_init[9:16], wMo = q_bridge, None
 
-    """
     if (
         acq_type != "test_config"
         and acq_type != "input_config"
         and acq_type != "ros_bridge_config"
-        and "given_config" not in acq_type
+        and acq_type != "given_config"
     ):
-        print("[INFO] No config given to the object.")
-        q_init, wMo = ri.getObjectPose(q_init)
+        raise ValueError("acquistion type for q_init is unknown.")
     # ___________________________________________
-    """
+
     poses = np.array(q_init[9:16])
 
     print(q_init)
@@ -440,5 +391,3 @@ if __name__ == "__main__":
     input_config = "input_config"
     ros_bridge_config = "ros_bridge_config"
     given_config = "given_config :"
-
-    # q_init, p = GrabAndDrop(robot, ps, binPicking, 'ros_bridge_config')
